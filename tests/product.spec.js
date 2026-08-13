@@ -1,31 +1,32 @@
 const { test, expect } = require('@playwright/test');
+const { LoginPage } = require('../pages/LoginPage');
+const { ProductsPage } = require('../pages/ProductsPage');
 
-test.describe("Product Interaction Tests", () => {
+test.describe('Product Interaction Tests', () => {
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId("username").fill("standard_user");
-    await page.getByTestId("password").fill("secret_sauce");
-    await page.getByRole("button", { name: "Login" }).click();
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login('standard_user', 'secret_sauce');
     await expect(page).toHaveURL(/inventory.html/);
   });
 
-  test("Add product to cart and verify cart badge updates", async ({ page }) => {
-    await page.getByTestId("add-to-cart-sauce-labs-backpack").click();
+  test('Add product to cart and verify cart badge updates', async ({ page }) => {
+    const productsPage = new ProductsPage(page);
 
-    await expect(page.locator(".shopping_cart_badge")).toHaveText('1');
-
-    await expect(page.getByTestId("remove-sauce-labs-backpack")).toBeVisible();
+    await productsPage.addToCart('sauce-labs-backpack');
+    await expect(productsPage.cartBadge).toHaveText('1');
+    await expect(page.getByTestId('remove-sauce-labs-backpack')).toBeVisible();
   });
 
-  test("Remove product from cart", async ({ page }) => {
-    await page.getByTestId("add-to-cart-sauce-labs-backpack").click();
-    await expect(page.locator(".shopping_cart_badge")).toHaveText('1');
+  test('Remove product from cart', async ({ page }) => {
+    const productsPage = new ProductsPage(page);
 
-    await page.getByTestId("remove-sauce-labs-backpack").click();
+    await productsPage.addToCart('sauce-labs-backpack');
+    await expect(productsPage.cartBadge).toHaveText('1');
 
-    
-    await expect(page.locator(".shopping_cart_badge")).toHaveCount(0);
+    await productsPage.removeFromCart('sauce-labs-backpack');
+    await expect(productsPage.cartBadge).toHaveCount(0);
   });
 
 });
