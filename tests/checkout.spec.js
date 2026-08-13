@@ -1,55 +1,45 @@
 const { test, expect } = require('@playwright/test');
+const { LoginPage } = require('../pages/LoginPage');
+const { ProductsPage } = require('../pages/ProductsPage');
+const { CheckoutPage } = require('../pages/CheckoutPage');
 
 test.describe('Checkout Tests', () => {
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('username').fill('standard_user');
-    await page.getByTestId('password').fill('secret_sauce');
-    await page.getByRole('button', { name: 'Login' }).click();
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login('standard_user', 'secret_sauce');
     await expect(page).toHaveURL(/inventory.html/);
   });
 
   test('Complete checkout flow with valid customer info', async ({ page }) => {
-    // Add a product to cart
-    await page.getByTestId('add-to-cart-sauce-labs-backpack').click();
-    await expect(page.locator('.shopping_cart_badge')).toHaveText('1');
+    const productsPage = new ProductsPage(page);
+    const checkoutPage = new CheckoutPage(page);
 
-    // Go to cart
-    await page.locator('.shopping_cart_link').click();
+    // Add product and go to cart
+    await productsPage.addToCart('sauce-labs-backpack');
+    await expect(productsPage.cartBadge).toHaveText('1');
+
+    await productsPage.cartLink.click();
     await expect(page).toHaveURL(/cart.html/);
     await expect(page.getByText('Sauce Labs Backpack')).toBeVisible();
 
-    // Proceed to checkout
-    await page.getByTestId('checkout').click();
+    // Checkout flow
+    await checkoutPage.goToCheckout();
     await expect(page).toHaveURL(/checkout-step-one.html/);
 
-    // Fill customer info
-    await page.getByTestId('firstName').fill('John');
-    await page.getByTestId('lastName').fill('Doe');
-    await page.getByTestId('postalCode').fill('12345');
-    await page.getByTestId('continue').click();
-
-    // Verify overview page and totals math
+    await checkoutPage.fillCustomerInfo('John', 'Doe', '12345');
     await expect(page).toHaveURL(/checkout-step-two.html/);
 
-    const itemTotalText = await page.locator('.summary_subtotal_label').textContent();
-    const taxText = await page.locator('.summary_tax_label').textContent();
-    const totalText = await page.locator('.summary_total_label').textContent();
-
-    const itemTotal = parseFloat(itemTotalText.replace('Item total: $', ''));
-    const tax = parseFloat(taxText.replace('Tax: $', ''));
-    const total = parseFloat(totalText.replace('Total: $', ''));
-
+    // Verify totals math
+    const { itemTotal, tax, total } = await checkoutPage.getTotals();
     expect(itemTotal + tax).toBeCloseTo(total, 2);
 
-    // Finish the order
-    await page.getByTestId('finish').click();
-
-    // Confirm order completion
+    // Finish and confirm
+    await checkoutPage.finishOrder();
     await expect(page).toHaveURL(/checkout-complete.html/);
-    await expect(page.getByText('Thank you for your order!')).toBeVisible();
-    await expect(page.getByTestId('back-to-products')).toBeVisible();
+    await expect(checkoutPage.confirmationText).toBeVisible();
+    await expect(checkoutPage.backToProductsButton).toBeVisible();
   });
 
 });
